@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-ChildItem 'd:/Works_VS/SDMarkDownCtrl/*.dll' | Select-Object Name, LastWriteTime, Length\")",
+      "Bash(powershell *)",
+      "Bash(dotnet build *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(& \"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"d:\\\\Works_VS\\\\SDMarkDownCtrl\\\\SDMarkDownCtrl.csproj\" -restore -p:Configuration=Release -v:minimal 2>&1)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Works_VS\\\\SDMarkDownCtrl\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(ConvertTo-Json -Depth 100)",
+      "Bash(grep -E \"\\\\.\\(md|txt|doc\\)$\")"
+    ]
+  }
+}

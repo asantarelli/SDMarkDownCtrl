@@ -1,0 +1,521 @@
+using System;
+using System.Collections.Concurrent;
+using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
+using Newtonsoft.Json;
+
+namespace SDMarkDownCtrl
+{
+    [ComVisible(true)]
+    [ClassInterface(ClassInterfaceType.AutoDual)]
+    public class SDMarkDownCtrlHostObject
+    {
+        private readonly SDMarkDownCtrlControl _control;
+
+        public SDMarkDownCtrlHostObject(SDMarkDownCtrlControl control)
+        {
+            _control = control;
+        }
+
+        public void SendMessage(string message)
+        {
+            try { _control.HandleHostObjectMessage(message); }
+            catch (Exception ex) { _control.SetError($"SendMessage error: {ex.Message}"); }
+        }
+
+        public string GetNextMessage()
+        {
+            try { return _control.DequeueMessage(); }
+            catch { return string.Empty; }
+        }
+    }
+
+    [ComVisible(true)]
+    [ClassInterface(ClassInterfaceType.None)]
+    [Guid("FE0B7ADF-7C26-4AC8-8A84-552DEE3E1B77")]
+    [ComSourceInterfaces(typeof(ISDMarkDownCtrlControlEvents))]
+    [ProgId("SDMarkDownCtrl.SDMarkDownCtrlControl")]
+    public partial class SDMarkDownCtrlControl : UserControl, ISDMarkDownCtrlControl
+    {
+        #region Fields
+
+        private WebView2 _webView;
+        private SDMarkDownCtrlHostObject _hostObject;
+        private bool _isReady;
+        private bool _isInitialized;
+        private string _lastError;
+
+        // Contenido
+        private string _markdownText;
+        private string _cachedHtml;
+        private bool _hasChanges;
+        private int _wordCount;
+        private int _lineCount;
+
+        // Apariencia / Comportamiento
+        private bool _editable;
+        private string _theme;
+        private int _fontSize;
+        private bool _toolbarVisible;
+        private bool _statusBarVisible;
+
+        // Carpeta de datos única por instancia (evita conflictos entre múltiples instancias)
+        private readonly string _instanceDataFolder;
+
+        // Cola de mensajes pendientes — JS hace polling via host object
+        private readonly ConcurrentQueue<string> _pendingMessages;
+
+        #endregion
+
+        #region COM Event Delegates
+
+        public delegate void ControlReadyDelegate();
+        public delegate void ErrorOccurredDelegate(string errorMessage);
+        public delegate void MarkdownChangedDelegate(string markdownText);
+        public delegate void EditorReadyDelegate();
+
+        #endregion
+
+        #region COM Events
+
+        public event ControlReadyDelegate ControlReady;
+        public event ErrorOccurredDelegate ErrorOccurred;
+        public event MarkdownChangedDelegate MarkdownChanged;
+        public event EditorReadyDelegate EditorReady;
+
+        #endregion
+
+        #region Constructor
+
+        public SDMarkDownCtrlControl()
+        {
+            _isReady = false;
+
+            _isInitialized = false;
+            _lastError = string.Empty;
+            _markdownText = string.Empty;
+            _cachedHtml = string.Empty;
+            _hasChanges = false;
+            _wordCount = 0;
+            _lineCount = 0;
+            _editable = true;
+            _theme = "light";
+            _fontSize = 14;
+            _toolbarVisible = true;
+            _statusBarVisible = true;
+            _pendingMessages = new ConcurrentQueue<string>();
+
+            _instanceDataFolder = Path.Combine(
+                Path.GetTempPath(),
+                "SDMarkDownCtrl",
+                Guid.NewGuid().ToString("N").Substring(0, 12));
+
+            Size = new Size(800, 500);
+            DoubleBuffered = true;
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            if (!DesignMode && !_isInitialized)
+            {
+                BackColor = Color.White;
+                InitializeWebView2Async();
+            }
+        }
+
+        #endregion
+
+        #region WebView2 Initialization
+
+        private async void InitializeWebView2Async()
+        {
+            try
+            {
+                if (_isInitialized) return;
+                _isInitialized = true;
+
+                _webView = new WebView2 { Dock = DockStyle.Fill };
+
+                var env = await CoreWebView2Environment.CreateAsync(null, _instanceDataFolder, null);
+                await _webView.EnsureCoreWebView2Async(env);
+
+                _webView.CoreWebView2.Settings.IsScriptEnabled = true;
+                _webView.CoreWebView2.Settings.IsWebMessageEnabled = true;
+                _webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
+                _webView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
+
+                // Mapear wwwroot al virtual host
+                var wwwrootPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+                _webView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                    "localapp.clarioncontrols",
+                    wwwrootPath,
+                    CoreWebView2HostResourceAccessKind.Allow);
+
+                _hostObject = new SDMarkDownCtrlHostObject(this);
+                _webView.CoreWebView2.AddHostObjectToScript("SDMarkDownCtrlHost", _hostObject);
+
+                _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+
+                Controls.Add(_webView);
+
+                _isReady = true;
+                RaiseControlReady();
+
+                _webView.CoreWebView2.Navigate(
+                    "https://localapp.clarioncontrols/controls/sdmarkdownctrl/index.html");
+            }
+            catch (Exception ex)
+            {
+                _lastError = $"WebView2 initialization failed: {ex.Message}";
+                RaiseErrorOccurred(_lastError);
+            }
+        }
+
+        #endregion
+
+        #region Message Handling
+
+        private class WebMessage
+        {
+            public string type { get; set; }
+            public string markdown { get; set; }
+            public string html { get; set; }
+            public int wordCount { get; set; }
+            public int lineCount { get; set; }
+            public string error { get; set; }
+        }
+
+        private void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            try
+            {
+                string raw = e.TryGetWebMessageAsString();
+                HandleWebMessage(raw);
+            }
+            catch (Exception ex)
+            {
+                SetError($"WebMessage error: {ex.Message}");
+            }
+        }
+
+        internal void HandleWebMessage(string message)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(message)) return;
+
+                var msg = JsonConvert.DeserializeObject<WebMessage>(message);
+                if (msg == null) return;
+
+                switch (msg.type ?? string.Empty)
+                {
+                    case "editorReady":
+                        RaiseEditorReady();
+                        break;
+
+                    case "contentLoaded":
+                        _markdownText = msg.markdown ?? string.Empty;
+                        _cachedHtml = msg.html ?? string.Empty;
+                        _wordCount = msg.wordCount;
+                        _lineCount = msg.lineCount;
+                        _hasChanges = false;
+                        break;
+
+                    case "textChanged":
+                        _markdownText = msg.markdown ?? string.Empty;
+                        _cachedHtml = msg.html ?? string.Empty;
+                        _wordCount = msg.wordCount;
+                        _lineCount = msg.lineCount;
+                        _hasChanges = true;
+                        RaiseMarkdownChanged(_markdownText);
+                        break;
+
+                    case "error":
+                        SetError(msg.error ?? "Unknown JS error");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                SetError($"Message parse error: {ex.Message}");
+            }
+        }
+
+        internal void HandleHostObjectMessage(string message)
+        {
+            // Punto de extensión para comunicación via host object
+        }
+
+        private void PostToEditor(object payload)
+        {
+            var json = JsonConvert.SerializeObject(payload);
+            _pendingMessages.Enqueue(json);
+        }
+
+        internal string DequeueMessage()
+        {
+            if (_pendingMessages.TryDequeue(out string msg))
+                return msg;
+            return string.Empty;
+        }
+
+        #endregion
+
+        #region ISDMarkDownCtrlControl — Properties
+
+        [ComVisible(true)]
+        public bool IsReady => _isReady;
+
+        [ComVisible(true)]
+        public string LastError => _lastError ?? string.Empty;
+
+        [ComVisible(true)]
+        public string MarkdownText
+        {
+            get => _markdownText ?? string.Empty;
+            set => SetMarkdownText(value);
+        }
+
+        [ComVisible(true)]
+        public bool Editable
+        {
+            get => _editable;
+            set
+            {
+                _editable = value;
+                PostToEditor(new { action = "setEditable", editable = _editable });
+            }
+        }
+
+        [ComVisible(true)]
+        public string Theme
+        {
+            get => _theme ?? "light";
+            set
+            {
+                _theme = value ?? "light";
+                PostToEditor(new { action = "setTheme", theme = _theme });
+            }
+        }
+
+        [ComVisible(true)]
+        public int FontSize
+        {
+            get => _fontSize;
+            set
+            {
+                _fontSize = value < 8 ? 8 : value;
+                PostToEditor(new { action = "setFontSize", fontSize = _fontSize });
+            }
+        }
+
+        [ComVisible(true)]
+        public bool HasChanges => _hasChanges;
+
+        [ComVisible(true)]
+        public int WordCount => _wordCount;
+
+        [ComVisible(true)]
+        public int LineCount => _lineCount;
+
+        #endregion
+
+        #region ISDMarkDownCtrlControl — Methods
+
+        [ComVisible(true)]
+        public string GetMarkdownText()
+        {
+            return _markdownText ?? string.Empty;
+        }
+
+        [ComVisible(true)]
+        public void SetMarkdownText(string markdown)
+        {
+            try
+            {
+                _markdownText = markdown ?? string.Empty;
+                _hasChanges = false;
+                PostToEditor(new { action = "setContent", markdown = _markdownText });
+            }
+            catch (Exception ex)
+            {
+                SetError($"SetMarkdownText error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        public void ClearContent()
+        {
+            try
+            {
+                _markdownText = string.Empty;
+                _cachedHtml = string.Empty;
+                _wordCount = 0;
+                _lineCount = 0;
+                _hasChanges = false;
+                PostToEditor(new { action = "setContent", markdown = string.Empty });
+            }
+            catch (Exception ex)
+            {
+                SetError($"ClearContent error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        public string ExportHTML()
+        {
+            return _cachedHtml ?? string.Empty;
+        }
+
+        [ComVisible(true)]
+        public void InsertText(string text)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(text)) return;
+                PostToEditor(new { action = "insertText", text });
+            }
+            catch (Exception ex)
+            {
+                SetError($"InsertText error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        public void SetToolbarVisible(bool visible)
+        {
+            try
+            {
+                _toolbarVisible = visible;
+                PostToEditor(new { action = "setToolbarVisible", visible });
+            }
+            catch (Exception ex)
+            {
+                SetError($"SetToolbarVisible error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        public void SetStatusBarVisible(bool visible)
+        {
+            try
+            {
+                _statusBarVisible = visible;
+                PostToEditor(new { action = "setStatusBarVisible", visible });
+            }
+            catch (Exception ex)
+            {
+                SetError($"SetStatusBarVisible error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        public void ScrollToTop()
+        {
+            try { PostToEditor(new { action = "scrollToTop" }); }
+            catch (Exception ex) { SetError($"ScrollToTop error: {ex.Message}"); }
+        }
+
+        [ComVisible(true)]
+        public void ScrollToBottom()
+        {
+            try { PostToEditor(new { action = "scrollToBottom" }); }
+            catch (Exception ex) { SetError($"ScrollToBottom error: {ex.Message}"); }
+        }
+
+        [ComVisible(true)]
+        public void SetPreviewMode(bool preview)
+        {
+            try { PostToEditor(new { action = "setPreviewMode", preview }); }
+            catch (Exception ex) { SetError($"SetPreviewMode error: {ex.Message}"); }
+        }
+
+        [ComVisible(true)]
+        public void FocusEditor()
+        {
+            try { PostToEditor(new { action = "focusEditor" }); }
+            catch (Exception ex) { SetError($"FocusEditor error: {ex.Message}"); }
+        }
+
+        [ComVisible(true)]
+        public void About()
+        {
+            try
+            {
+                var asm = System.Reflection.Assembly.GetExecutingAssembly();
+                var ver = asm.GetName().Version;
+                MessageBox.Show(
+                    $"SDMarkDownCtrl\nVersion: {ver.Major}.{ver.Minor}.{ver.Build}\n" +
+                    $"WebView2 Runtime: {CoreWebView2Environment.GetAvailableBrowserVersionString()}\n\n" +
+                    "Markdown editor control for Clarion.\nUses EasyMDE + WebView2.",
+                    "About SDMarkDownCtrl",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch { }
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        internal void SetError(string error)
+        {
+            _lastError = error ?? string.Empty;
+            RaiseErrorOccurred(_lastError);
+        }
+
+        #endregion
+
+        #region Event Raising
+
+        private void RaiseControlReady()
+        {
+            if (ControlReady != null) try { ControlReady(); } catch { }
+        }
+
+        private void RaiseErrorOccurred(string msg)
+        {
+            if (ErrorOccurred != null) try { ErrorOccurred(msg ?? string.Empty); } catch { }
+        }
+
+        private void RaiseMarkdownChanged(string markdown)
+        {
+            if (MarkdownChanged != null) try { MarkdownChanged(markdown ?? string.Empty); } catch { }
+        }
+
+        private void RaiseEditorReady()
+        {
+            if (EditorReady != null) try { EditorReady(); } catch { }
+        }
+
+        #endregion
+
+        #region Cleanup
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _webView?.Dispose();
+                _webView = null;
+
+                // Limpiar carpeta de datos temporales de esta instancia
+                try
+                {
+                    if (Directory.Exists(_instanceDataFolder))
+                        Directory.Delete(_instanceDataFolder, true);
+                }
+                catch { }
+            }
+            base.Dispose(disposing);
+        }
+
+        #endregion
+    }
+}

@@ -1,0 +1,158 @@
+/* SDMarkDownCtrl — estilos base */
+:root {
+    --editor-font-size: 14px;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#editor-wrapper {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* EasyMDE ocupa todo el espacio disponible */
+.EasyMDEContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.EasyMDEContainer .CodeMirror {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    font-size: var(--editor-font-size);
+}
+
+.editor-preview {
+    font-size: var(--editor-font-size);
+}
+
+.CodeMirror-scroll {
+    min-height: 0;
+}
+
+/* --- TEMA CLARO (default) --- */
+body.theme-light,
+body:not(.theme-dark) {
+    background: #ffffff;
+    color: #333333;
+}
+
+body.theme-light .editor-preview,
+body:not(.theme-dark) .editor-preview {
+    background: #ffffff;
+    color: #333333;
+}
+
+/* --- TEMA OSCURO --- */
+body.theme-dark {
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+body.theme-dark .EasyMDEContainer .editor-toolbar {
+    background: #2d2d2d;
+    border-color: #555;
+}
+
+/* EasyMDE v2.20+ usa background-image en span[data-img-src]::after — invertir para dark */
+body.theme-dark .EasyMDEContainer .editor-toolbar button span[data-img-src],
+body.theme-dark .EasyMDEContainer .editor-toolbar a span[data-img-src] {
+    filter: invert(1);
+}
+
+body.theme-dark .EasyMDEContainer .editor-toolbar button:hover,
+body.theme-dark .EasyMDEContainer .editor-toolbar button.active,
+body.theme-dark .EasyMDEContainer .editor-toolbar a:hover,
+body.theme-dark .EasyMDEContainer .editor-toolbar a.active {
+    background: #444 !important;
+    border-color: #666 !important;
+}
+
+body.theme-dark .EasyMDEContainer .editor-toolbar i.separator {
+    border-left-color: #555;
+    border-right-color: #333;
+}
+
+/* Ocultar toolbar vía clase (más robusto que inline style) */
+.toolbar-hidden .editor-toolbar {
+    display: none !important;
+}
+
+body.theme-dark .EasyMDEContainer .CodeMirror {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border-color: #555;
+}
+
+body.theme-dark .editor-preview {
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+body.theme-dark .editor-preview pre {
+    background: #2d2d2d;
+}
+
+body.theme-dark .editor-statusbar {
+    background: #2d2d2d;
+    color: #aaaaaa;
+    border-color: #555;
+}
+
+/* --- Preview: texto legible --- */
+.editor-preview h1, .editor-preview h2, .editor-preview h3,
+.editor-preview h4, .editor-preview h5, .editor-preview h6 {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+}
+
+.editor-preview img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 8px 0;
+}
+
+.editor-preview pre {
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.editor-preview blockquote {
+    border-left: 4px solid #ccc;
+    padding-left: 12px;
+    margin-left: 0;
+    color: #666;
+}
+
+body.theme-dark .editor-preview h1,
+body.theme-dark .editor-preview h2,
+body.theme-dark .editor-preview h3 {
+    border-bottom-color: #444;
+}
+
+body.theme-dark .editor-preview blockquote {
+    border-left-color: #555;
+    color: #aaa;
+}
+
+/* Error display */
+.error-message {
+    color: #d32f2f;
+    padding: 10px;
+    margin: 10px;
+    border: 1px solid #d32f2f;
+    border-radius: 4px;
+    background-color: #ffebee;
+}

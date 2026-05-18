@@ -1,0 +1,36 @@
+# Build outputs
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Auto-generados por el build
+ParsedInterface.json
+
+# WebView2 user data (instancias temporales en runtime)
+WebView2UserData/
+webview2_*/
+
+# Logs y diagnóstico
+*.log
+*.trace
+
+# Variables de entorno locales — solo si contienen secretos
+# .env
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

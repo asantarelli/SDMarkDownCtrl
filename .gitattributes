@@ -1,0 +1,40 @@
+# Normalización automática de line endings
+* text=auto
+
+# Código fuente C# — LF en repo, CRLF en checkout Windows
+*.cs        text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.manifest  text eol=crlf
+*.json      text eol=crlf
+*.xml       text eol=crlf
+
+# Scripts PowerShell — siempre CRLF
+*.ps1       text eol=crlf
+*.psm1      text eol=crlf
+*.psd1      text eol=crlf
+
+# Web assets — LF
+*.html      text eol=lf
+*.js        text eol=lf
+*.css       text eol=lf
+
+# Documentación
+*.md        text eol=lf
+*.txt       text eol=lf
+.env        text eol=lf
+
+# Binarios — sin conversión de line endings
+*.dll       binary
+*.pdb       binary
+*.exe       binary
+*.png       binary
+*.gif       binary
+*.jpg       binary
+*.ico       binary
+*.zip       binary
+*.nupkg     binary
+
+# Diff semántico
+*.md        diff=markdown
+*.cs        diff=csharp

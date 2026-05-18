@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+
+  <assemblyIdentity
+      name="SDMarkDownCtrl"
+      version="1.1.1.0"
+      processorArchitecture="x86"
+      type="win32"/>
+
+  <clrClass
+      clsid="{FE0B7ADF-7C26-4AC8-8A84-552DEE3E1B77}"
+      progid="SDMarkDownCtrl.SDMarkDownCtrlControl"
+      threadingModel="Apartment"
+      name="SDMarkDownCtrl.SDMarkDownCtrlControl"
+      runtimeVersion="v4.0.30319">
+  </clrClass>
+
+  <file name="SDMarkDownCtrl.dll">
+     <typelib
+         tlbid="{2C457CBC-67DA-4109-AFE7-765935C21D9C}"
+         version="1.0"
+         helpdir=""
+         resourceid="0"
+         flags="HASDISKIMAGE"/>
+  </file>
+
+</assembly>

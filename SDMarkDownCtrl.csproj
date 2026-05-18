@@ -1,0 +1,112 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ClarionCOMHome Condition="'$(ClarionCOMHome)' == ''">$(APPDATA)\ClarionCOM</ClarionCOMHome>
+    <TargetFramework>net472</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x86</PlatformTarget>
+    <OutputType>Library</OutputType>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+    <ComVisible>true</ComVisible>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>SDMarkDownCtrl</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2535.41" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="wwwroot\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ClarionDeployPath>$(ProjectDir)..\Clarion\</ClarionDeployPath>
+    <ClarionAccessoryPath>$(ClarionDeployPath)accessory\</ClarionAccessoryPath>
+    <ClarionBinPath>$(ClarionAccessoryPath)bin\</ClarionBinPath>
+    <ClarionResourcesPath>$(ClarionAccessoryPath)resources\</ClarionResourcesPath>
+  </PropertyGroup>
+
+  <!-- Verificar versión WebView2 para consistencia entre múltiples controles -->
+  <Target Name="SyncWebView2Version" BeforeTargets="Restore;Build">
+    <PropertyGroup>
+      <VersionCheckScript>$(ClarionCOMHome)\scripts\check-webview2-version.ps1</VersionCheckScript>
+      <ClarionEnvScript>$(ClarionCOMHome)\scripts\clarioncom-env.ps1</ClarionEnvScript>
+    </PropertyGroup>
+    <Exec Command="powershell -ExecutionPolicy Bypass -Command &quot;$clarionPath = &amp; '$(ClarionEnvScript)' clarion 2>$null; if ($clarionPath -and $clarionPath -ne 'NOT_CONFIGURED' -and (Test-Path '$(VersionCheckScript)')) { &amp; '$(VersionCheckScript)' -CsprojPath '$(MSBuildProjectFullPath)' -ClarionPath $clarionPath } else { Write-Host 'WebView2 version check skipped' -ForegroundColor Gray }&quot;"
+          IgnoreExitCode="true"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="VersionCheckOutput" />
+    </Exec>
+    <Message Text="WebView2 Version Check: $(VersionCheckOutput)" Importance="high" Condition="'$(VersionCheckOutput)' != ''" />
+  </Target>
+
+  <!-- Deploy DLLs → Clarion/accessory/bin, manifest + wwwroot → Clarion/accessory/resources -->
+  <Target Name="DeployClarionFiles" AfterTargets="Build">
+    <ItemGroup>
+      <DllFiles Include="$(OutputPath)*.dll" />
+    </ItemGroup>
+    <MakeDir Directories="$(ClarionBinPath)"      Condition="!Exists('$(ClarionBinPath)')" />
+    <MakeDir Directories="$(ClarionResourcesPath)" Condition="!Exists('$(ClarionResourcesPath)')" />
+    <MakeDir Directories="$(ClarionResourcesPath)wwwroot" Condition="!Exists('$(ClarionResourcesPath)wwwroot')" />
+    <Copy SourceFiles="@(DllFiles)" DestinationFolder="$(ClarionBinPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).manifest"
+          DestinationFolder="$(ClarionResourcesPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(OutputPath)$(AssemblyName).manifest')" />
+    <Exec Command="robocopy &quot;$(OutputPath)wwwroot&quot; &quot;$(ClarionResourcesPath)wwwroot&quot; /E /NFL /NDL /NJH /NJS /NC /NS"
+          IgnoreExitCode="true"
+          Condition="Exists('$(OutputPath)wwwroot')" />
+    <Message Text="DLLs → $(ClarionBinPath)" Importance="high" />
+    <Message Text="Manifest + wwwroot → $(ClarionResourcesPath)" Importance="high" />
+  </Target>
+
+  <!-- Generar metadatos Clarion -->
+  <Target Name="GenerateClarionMetadata" AfterTargets="DeployClarionFiles">
+    <PropertyGroup>
+      <MetadataScriptPath>$(ClarionCOMHome)\scripts\GenerateClarionMetadata.ps1</MetadataScriptPath>
+      <MetadataProjectDir>$(ProjectDir.TrimEnd('\'))</MetadataProjectDir>
+      <MetadataDeployPath>$(ClarionResourcesPath.TrimEnd('\'))</MetadataDeployPath>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { &amp; '$(MetadataScriptPath)' -ProjectDir '$(MetadataProjectDir)' -AssemblyName '$(AssemblyName)' -ClarionDeployPath '$(MetadataDeployPath)' }&quot;" />
+    <Message Text="Metadatos Clarion generados → $(ClarionResourcesPath)" Importance="high" />
+  </Target>
+
+  <!-- Copiar manifest al resources -->
+  <Target Name="GenerateManifestFile" AfterTargets="GenerateClarionMetadata">
+    <PropertyGroup>
+      <ManifestSource>$(ProjectDir)SDMarkDownCtrl.manifest</ManifestSource>
+      <ManifestDest>$(ClarionResourcesPath)$(AssemblyName).manifest</ManifestDest>
+    </PropertyGroup>
+    <Copy SourceFiles="$(ManifestSource)" DestinationFiles="$(ManifestDest)" SkipUnchangedFiles="false" />
+    <Message Text="Manifest → $(ManifestDest)" Importance="high" />
+  </Target>
+
+  <!-- Parsear interfaz COM para documentación -->
+  <Target Name="ParseCOMInterface" AfterTargets="GenerateManifestFile">
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(ClarionCOMHome)\scripts\ParseCOMInterface.ps1&quot; -ProjectDir &quot;$(ProjectDir)&quot;" />
+  </Target>
+
+  <!-- Generar README.html -->
+  <Target Name="GenerateReadmeHtml" AfterTargets="ParseCOMInterface">
+    <PropertyGroup>
+      <ReadmeFile>$(ClarionResourcesPath)readme_$(AssemblyName).html</ReadmeFile>
+      <ParsedDataFile>$(ProjectDir)ParsedInterface.json</ParsedDataFile>
+    </PropertyGroup>
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(ClarionCOMHome)\scripts\GenerateReadmeHTML.ps1&quot; -ParsedDataFile &quot;$(ParsedDataFile)&quot; -OutputFile &quot;$(ReadmeFile)&quot; -AssemblyName &quot;$(AssemblyName)&quot;" />
+  </Target>
+
+  <!-- Auto-deploy a instalación Clarion -->
+  <Target Name="DeployToClarionInstallation" AfterTargets="GenerateReadmeHtml">
+    <PropertyGroup>
+      <CopyScript>$(ClarionCOMHome)\scripts\copy-to-clarion.ps1</CopyScript>
+      <ClarionEnvScript>$(ClarionCOMHome)\scripts\clarioncom-env.ps1</ClarionEnvScript>
+    </PropertyGroup>
+    <Exec Command="powershell -ExecutionPolicy Bypass -Command &quot;$clarionPath = &amp; '$(ClarionEnvScript)' clarion; if ($clarionPath -and $clarionPath -ne 'NOT_CONFIGURED') { &amp; '$(CopyScript)' -ProjectFolder '$(ClarionAccessoryPath.TrimEnd('\'))' -ClarionPath $clarionPath -Target 'accessory' } else { Write-Host 'Clarion path no configurado - skip auto-deploy.' -ForegroundColor Yellow }&quot;"
+          IgnoreExitCode="true" />
+  </Target>
+
+</Project>

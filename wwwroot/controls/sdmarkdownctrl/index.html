@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDMarkDownCtrl</title>
+
+    <!-- EasyMDE CSS (descargado por download-libs.ps1) -->
+    <link rel="stylesheet" href="../../css/easymde.min.css">
+
+    <!-- highlight.js para syntax highlighting en bloques de código -->
+    <link rel="stylesheet" href="../../css/highlight.min.css">
+
+    <!-- Estilos base + dark theme -->
+    <link rel="stylesheet" href="../../css/styles.css">
+
+    <!-- EasyMDE JS -->
+    <script src="../../js/easymde.min.js"></script>
+
+    <!-- highlight.js -->
+    <script src="../../js/highlight.min.js"></script>
+</head>
+<body>
+    <div id="editor-wrapper">
+        <textarea id="md-editor"></textarea>
+    </div>
+
+    <!-- Lógica del control -->
+    <script src="app.js"></script>
+
+    <script>
+        // Bridge: recibir mensajes desde C#
+        if (typeof chrome !== 'undefined' && chrome.webview) {
+            chrome.webview.addEventListener('message', function(event) {
+                if (typeof event.data === 'string') {
+                    try {
+                        var msg = JSON.parse(event.data);
+                        if (typeof window.handleCSharpMessage === 'function') {
+                            window.handleCSharpMessage(msg);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing C# message:', e);
+                    }
+                }
+            });
+        }
+
+        // Enviar mensaje a C#
+        function postToCSharp(obj) {
+            try {
+                if (typeof chrome !== 'undefined' && chrome.webview) {
+                    chrome.webview.postMessage(JSON.stringify(obj));
+                }
+            } catch (e) {
+                console.error('postToCSharp error:', e);
+            }
+        }
+    </script>
+</body>
+</html>
