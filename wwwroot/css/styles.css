@@ -43,19 +43,24 @@ html, body {
 /* --- TEMA CLARO (default) --- */
 body.theme-light,
 body:not(.theme-dark) {
-    background: #ffffff;
+    background: var(--custom-bg, #ffffff);
     color: #333333;
 }
 
 body.theme-light .editor-preview,
 body:not(.theme-dark) .editor-preview {
-    background: #ffffff;
+    background: var(--custom-bg, #ffffff);
     color: #333333;
+}
+
+body.theme-light .EasyMDEContainer .CodeMirror,
+body:not(.theme-dark) .EasyMDEContainer .CodeMirror {
+    background: var(--custom-bg, #ffffff);
 }
 
 /* --- TEMA OSCURO --- */
 body.theme-dark {
-    background: #1e1e1e;
+    background: var(--custom-bg, #1e1e1e);
     color: #d4d4d4;
 }
 
@@ -89,13 +94,13 @@ body.theme-dark .EasyMDEContainer .editor-toolbar i.separator {
 }
 
 body.theme-dark .EasyMDEContainer .CodeMirror {
-    background: #1e1e1e;
+    background: var(--custom-bg, #1e1e1e);
     color: #d4d4d4;
     border-color: #555;
 }
 
 body.theme-dark .editor-preview {
-    background: #1e1e1e;
+    background: var(--custom-bg, #1e1e1e);
     color: #d4d4d4;
 }
 

@@ -71,6 +71,10 @@ namespace SDMarkDownCtrl
         [DispId(20)]
         int FontSize { get; set; }
 
+        /// <summary>Color de fondo del editor en formato hex (ej: "#f5f5f5"). En modo oscuro se aplica una versión oscurecida automáticamente. Vacío = color por defecto.</summary>
+        [DispId(22)]
+        string BackgroundColor { get; set; }
+
         /// <summary>Muestra u oculta la barra de herramientas del editor.</summary>
         [DispId(14)]
         void SetToolbarVisible(bool visible);

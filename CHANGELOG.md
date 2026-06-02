@@ -1,5 +1,13 @@
 # SDMarkDownCtrl — Changelog
 
+## [1.1.4] - 2026-06-02
+
+### Agregado
+
+- Propiedad `BackgroundColor` (string, get/set): permite definir el color de fondo del editor en formato hex (ej: `"#f5f5f5"`). En modo oscuro se aplica automáticamente una versión oscurecida del color (20% de brillo), manteniendo coherencia visual con el tema. Vacío = color por defecto del tema.
+
+---
+
 ## [1.1.3] - 2026-06-02
 
 ### Fix

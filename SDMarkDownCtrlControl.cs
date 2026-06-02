@@ -62,6 +62,7 @@ namespace SDMarkDownCtrl
         private int _fontSize;
         private bool _toolbarVisible;
         private bool _statusBarVisible;
+        private string _backgroundColor;
 
         // Carpeta de datos única por instancia (evita conflictos entre múltiples instancias)
         private readonly string _instanceDataFolder;
@@ -107,6 +108,7 @@ namespace SDMarkDownCtrl
             _fontSize = 14;
             _toolbarVisible = true;
             _statusBarVisible = true;
+            _backgroundColor = string.Empty;
             _pendingMessages = new ConcurrentQueue<string>();
 
             _instanceDataFolder = Path.Combine(
@@ -310,6 +312,17 @@ namespace SDMarkDownCtrl
             {
                 _fontSize = value < 8 ? 8 : value;
                 PostToEditor(new { action = "setFontSize", fontSize = _fontSize });
+            }
+        }
+
+        [ComVisible(true)]
+        public string BackgroundColor
+        {
+            get => _backgroundColor ?? string.Empty;
+            set
+            {
+                _backgroundColor = value ?? string.Empty;
+                PostToEditor(new { action = "setBackgroundColor", color = _backgroundColor });
             }
         }
 

@@ -8,6 +8,7 @@
     var statusBarVisible = true;
     var currentTheme = 'light';
     var currentFontSize = 14;
+    var customBgColor = '';
     var changeDebounceTimer = null;
 
     // -------------------------------------------------------------------------
@@ -182,6 +183,11 @@
             case 'focusEditor':
                 if (isEditable) editor.codemirror.focus();
                 break;
+
+            case 'setBackgroundColor':
+                customBgColor = msg.color || '';
+                applyBackgroundColor();
+                break;
         }
     };
 
@@ -251,6 +257,42 @@
     }
 
     // -------------------------------------------------------------------------
+    // Color de fondo personalizado
+    // -------------------------------------------------------------------------
+
+    function hexToRgb(hex) {
+        var clean = hex.replace(/^#/, '');
+        if (clean.length === 3) {
+            clean = clean[0]+clean[0]+clean[1]+clean[1]+clean[2]+clean[2];
+        }
+        if (clean.length !== 6) return null;
+        return {
+            r: parseInt(clean.slice(0,2), 16),
+            g: parseInt(clean.slice(2,4), 16),
+            b: parseInt(clean.slice(4,6), 16)
+        };
+    }
+
+    function darkenHex(hex, factor) {
+        // factor: 0=negro, 1=color original. Usa 0.2 para dark mode.
+        var rgb = hexToRgb(hex);
+        if (!rgb) return hex;
+        var r = Math.round(rgb.r * factor);
+        var g = Math.round(rgb.g * factor);
+        var b = Math.round(rgb.b * factor);
+        return '#' + [r,g,b].map(function(v){ return v.toString(16).padStart(2,'0'); }).join('');
+    }
+
+    function applyBackgroundColor() {
+        if (!customBgColor) {
+            document.documentElement.style.removeProperty('--custom-bg');
+            return;
+        }
+        var color = (currentTheme === 'dark') ? darkenHex(customBgColor, 0.2) : customBgColor;
+        document.documentElement.style.setProperty('--custom-bg', color);
+    }
+
+    // -------------------------------------------------------------------------
     // Temas
     // -------------------------------------------------------------------------
 
@@ -262,11 +304,11 @@
         // EasyMDE usa CodeMirror; cambiar tema de CM
         if (theme === 'dark') {
             editor.codemirror.setOption('theme', 'base16-dark');
-            document.querySelector('.CodeMirror') &&
-                (document.querySelector('.CodeMirror').style.backgroundColor = '#1e1e1e');
         } else {
             editor.codemirror.setOption('theme', 'default');
         }
+
+        applyBackgroundColor();
     }
 
     // -------------------------------------------------------------------------
