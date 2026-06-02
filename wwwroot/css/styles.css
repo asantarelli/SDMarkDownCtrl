@@ -43,13 +43,13 @@ html, body {
 /* --- TEMA CLARO (default) --- */
 body.theme-light,
 body:not(.theme-dark) {
-    background: var(--custom-bg, #ffffff);
+    background: #ffffff;
     color: #333333;
 }
 
 body.theme-light .editor-preview,
 body:not(.theme-dark) .editor-preview {
-    background: var(--custom-bg, #ffffff);
+    background: #ffffff;
     color: #333333;
 }
 
@@ -145,12 +145,6 @@ body.theme-dark .editor-preview h3 {
 body.theme-dark .editor-preview blockquote {
     border-left-color: #555;
     color: #aaa;
-}
-
-/* --- Color de fondo personalizado (BackgroundColor property) --- */
-body.has-custom-bg .EasyMDEContainer .CodeMirror,
-body.has-custom-bg .EasyMDEContainer .CodeMirror-scroll {
-    background-color: var(--custom-bg) !important;
 }
 
 /* Error display */

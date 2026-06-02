@@ -287,14 +287,20 @@
     }
 
     function applyBackgroundColor() {
-        if (!customBgColor) {
-            document.documentElement.style.removeProperty('--custom-bg');
-            document.body.classList.remove('has-custom-bg');
-            return;
-        }
-        var color = (currentTheme === 'dark') ? darkenHex(customBgColor, 0.2) : customBgColor;
-        document.documentElement.style.setProperty('--custom-bg', color);
-        document.body.classList.add('has-custom-bg');
+        var color = customBgColor
+            ? (currentTheme === 'dark' ? darkenHex(customBgColor, 0.2) : customBgColor)
+            : '';
+
+        // body: visible en márgenes y status bar
+        document.body.style.backgroundColor = color;
+
+        // editor-preview: el área renderizada que se ve en modo Editable=false / preview
+        var preview = document.querySelector('.editor-preview');
+        if (preview) preview.style.backgroundColor = color;
+
+        // CodeMirror outer wrapper: solo el div contenedor, sin tocar internos
+        var cm = editor ? editor.codemirror.getWrapperElement() : null;
+        if (cm) cm.style.backgroundColor = color;
     }
 
     // -------------------------------------------------------------------------
