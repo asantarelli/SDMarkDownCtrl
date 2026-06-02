@@ -1,5 +1,14 @@
 # SDMarkDownCtrl — Changelog
 
+## [1.1.3] - 2026-06-02
+
+### Fix
+
+- Eliminado campo `html` de los mensajes `textChanged` y `contentLoaded` enviados via `postMessage` (JS → C#). Para textos grandes, el payload JSON combinado (markdown + html renderizado) podía superar el límite práctico del IPC de WebView2, causando que el mensaje se descartara silenciosamente y `_markdownText` quedara desactualizado.
+- `ExportHTML()` ahora es lazy: calcula el HTML renderizado bajo demanda invocando `window.getRenderedHTML()` via `ExecuteScriptAsync`, en lugar de recibirlo en cada cambio.
+
+---
+
 ## [1.1.2] - 2026-05-08
 
 ### Cambios

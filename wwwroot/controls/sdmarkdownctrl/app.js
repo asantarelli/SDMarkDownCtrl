@@ -84,16 +84,12 @@
     function notifyTextChanged() {
         if (!editor) return;
         var markdown = editor.value();
-        var html = editor.options.previewRender
-            ? editor.options.previewRender(markdown)
-            : '';
         var words = countWords(markdown);
         var lines = markdown.split('\n').length;
 
         postToCSharp({
             type: 'textChanged',
             markdown: markdown,
-            html: html,
             wordCount: words,
             lineCount: lines
         });
@@ -102,20 +98,25 @@
     function notifyContentLoaded() {
         if (!editor) return;
         var markdown = editor.value();
-        var html = editor.options.previewRender
-            ? editor.options.previewRender(markdown)
-            : '';
         var words = countWords(markdown);
         var lines = markdown.split('\n').length;
 
         postToCSharp({
             type: 'contentLoaded',
             markdown: markdown,
-            html: html,
             wordCount: words,
             lineCount: lines
         });
     }
+
+    // Expuesto para que C# lo llame via ExecuteScriptAsync cuando necesite el HTML
+    window.getRenderedHTML = function () {
+        if (!editor) return '';
+        var markdown = editor.value();
+        return editor.options.previewRender
+            ? editor.options.previewRender(markdown)
+            : '';
+    };
 
     function countWords(text) {
         var trimmed = text.trim().replace(/```[\s\S]*?```/g, '') // quitar bloques de código

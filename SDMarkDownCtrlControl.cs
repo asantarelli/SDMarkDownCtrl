@@ -184,7 +184,6 @@ namespace SDMarkDownCtrl
         {
             public string type { get; set; }
             public string markdown { get; set; }
-            public string html { get; set; }
             public int wordCount { get; set; }
             public int lineCount { get; set; }
             public string error { get; set; }
@@ -220,7 +219,7 @@ namespace SDMarkDownCtrl
 
                     case "contentLoaded":
                         _markdownText = msg.markdown ?? string.Empty;
-                        _cachedHtml = msg.html ?? string.Empty;
+                        _cachedHtml = string.Empty;
                         _wordCount = msg.wordCount;
                         _lineCount = msg.lineCount;
                         _hasChanges = false;
@@ -228,7 +227,7 @@ namespace SDMarkDownCtrl
 
                     case "textChanged":
                         _markdownText = msg.markdown ?? string.Empty;
-                        _cachedHtml = msg.html ?? string.Empty;
+                        _cachedHtml = string.Empty;
                         _wordCount = msg.wordCount;
                         _lineCount = msg.lineCount;
                         _hasChanges = true;
@@ -369,7 +368,44 @@ namespace SDMarkDownCtrl
         [ComVisible(true)]
         public string ExportHTML()
         {
-            return _cachedHtml ?? string.Empty;
+            if (!string.IsNullOrEmpty(_cachedHtml))
+                return _cachedHtml;
+
+            if (_webView?.CoreWebView2 == null || string.IsNullOrEmpty(_markdownText))
+                return string.Empty;
+
+            try
+            {
+                // Ejecutar sync en el hilo de UI: bloquear brevemente para obtener el HTML renderizado
+                string result = string.Empty;
+                bool done = false;
+
+                var task = _webView.CoreWebView2.ExecuteScriptAsync("window.getRenderedHTML()");
+                task.ContinueWith(t =>
+                {
+                    if (!t.IsFaulted && t.Result != null)
+                    {
+                        // El resultado viene como JSON string (con comillas y escapes)
+                        var raw = t.Result;
+                        if (raw.Length >= 2 && raw[0] == '"')
+                            raw = JsonConvert.DeserializeObject<string>(raw);
+                        result = raw ?? string.Empty;
+                        _cachedHtml = result;
+                    }
+                    done = true;
+                });
+
+                // Esperar hasta 2 segundos procesando mensajes de UI para no bloquear el pump
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                while (!done && sw.ElapsedMilliseconds < 2000)
+                    Application.DoEvents();
+
+                return _cachedHtml ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         [ComVisible(true)]
