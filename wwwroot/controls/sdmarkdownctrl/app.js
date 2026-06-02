@@ -136,8 +136,11 @@
 
         switch (msg.action) {
             case 'setContent':
+                var wasPreview = editor.isPreviewActive();
+                if (wasPreview) editor.togglePreview();   // salir temporalmente para poder setear el valor
                 editor.value(msg.markdown || '');
                 clearTimeout(changeDebounceTimer); // cancelar el change que dispara setValue
+                if (wasPreview) editor.togglePreview();   // restaurar modo preview
                 notifyContentLoaded();
                 break;
 
@@ -284,26 +287,14 @@
     }
 
     function applyBackgroundColor() {
-        var cm = editor ? editor.codemirror.getWrapperElement() : null;
-
         if (!customBgColor) {
             document.documentElement.style.removeProperty('--custom-bg');
-            if (cm) cm.style.removeProperty('background');
+            document.body.classList.remove('has-custom-bg');
             return;
         }
-
         var color = (currentTheme === 'dark') ? darkenHex(customBgColor, 0.2) : customBgColor;
         document.documentElement.style.setProperty('--custom-bg', color);
-
-        // Aplicar directamente sobre el wrapper de CodeMirror (evita conflictos con sus reglas CSS internas)
-        if (cm) {
-            cm.style.background = color;
-            // También el scroll interno donde se renderiza el texto
-            var scroll = cm.querySelector('.CodeMirror-scroll');
-            if (scroll) scroll.style.background = color;
-        }
-
-        if (editor) editor.codemirror.refresh();
+        document.body.classList.add('has-custom-bg');
     }
 
     // -------------------------------------------------------------------------

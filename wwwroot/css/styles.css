@@ -147,6 +147,12 @@ body.theme-dark .editor-preview blockquote {
     color: #aaa;
 }
 
+/* --- Color de fondo personalizado (BackgroundColor property) --- */
+body.has-custom-bg .EasyMDEContainer .CodeMirror,
+body.has-custom-bg .EasyMDEContainer .CodeMirror-scroll {
+    background-color: var(--custom-bg) !important;
+}
+
 /* Error display */
 .error-message {
     color: #d32f2f;
