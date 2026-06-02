@@ -1,5 +1,16 @@
 # SDMarkDownCtrl — Changelog
 
+## [1.1.8] - 2026-06-02
+
+### Fix — Deployment
+
+- **`GenerateClarionMetadata.ps1`**: corregidos dos bugs que impedían el auto-deploy al proyecto Clarion:
+  1. `[DllsToCopy]` ahora usa el build output real del proyecto, eliminando DLLs ajenas (`SDDocumentViewerCom.dll`, `SDMapViewerCom.dll`) del header.
+  2. `[ControlsToCopy]` ahora incluye el prefijo `wwwroot\` en cada path, permitiendo que el template Clarion localice los archivos en `accessory\resources\wwwroot\...`.
+- **`.csproj`**: pasa `-BuildOutputPath` al script de metadata para activar el fix.
+
+---
+
 ## [1.1.4] - 2026-06-02
 
 ### Agregado

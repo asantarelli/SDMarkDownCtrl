@@ -71,7 +71,7 @@
       <MetadataProjectDir>$(ProjectDir.TrimEnd('\'))</MetadataProjectDir>
       <MetadataDeployPath>$(ClarionResourcesPath.TrimEnd('\'))</MetadataDeployPath>
     </PropertyGroup>
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { &amp; '$(MetadataScriptPath)' -ProjectDir '$(MetadataProjectDir)' -AssemblyName '$(AssemblyName)' -ClarionDeployPath '$(MetadataDeployPath)' }&quot;" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { &amp; '$(MetadataScriptPath)' -ProjectDir '$(MetadataProjectDir)' -AssemblyName '$(AssemblyName)' -ClarionDeployPath '$(MetadataDeployPath)' -BuildOutputPath '$(OutputPath.TrimEnd(`\`))' }&quot;" />
     <Message Text="Metadatos Clarion generados → $(ClarionResourcesPath)" Importance="high" />
   </Target>
 
