@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("SDMarkDownCtrl")]
@@ -21,5 +21,5 @@ using System.Runtime.InteropServices;
 // Events:    5F4D3B8B-E27C-4B4B-86C4-C115E6B4E3C2  (ISDMarkDownCtrlControlEvents.cs)
 // Class:     FE0B7ADF-7C26-4AC8-8A84-552DEE3E1B77  (SDMarkDownCtrlControl.cs)
 
-[assembly: AssemblyVersion("1.1.4.0")]
-[assembly: AssemblyFileVersion("1.1.4.0")]
+[assembly: AssemblyVersion("1.1.5.0")]
+[assembly: AssemblyFileVersion("1.1.5.0")]

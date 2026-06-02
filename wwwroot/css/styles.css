@@ -53,11 +53,6 @@ body:not(.theme-dark) .editor-preview {
     color: #333333;
 }
 
-body.theme-light .EasyMDEContainer .CodeMirror,
-body:not(.theme-dark) .EasyMDEContainer .CodeMirror {
-    background: var(--custom-bg, #ffffff);
-}
-
 /* --- TEMA OSCURO --- */
 body.theme-dark {
     background: var(--custom-bg, #1e1e1e);
@@ -94,7 +89,7 @@ body.theme-dark .EasyMDEContainer .editor-toolbar i.separator {
 }
 
 body.theme-dark .EasyMDEContainer .CodeMirror {
-    background: var(--custom-bg, #1e1e1e);
+    background: #1e1e1e;
     color: #d4d4d4;
     border-color: #555;
 }
