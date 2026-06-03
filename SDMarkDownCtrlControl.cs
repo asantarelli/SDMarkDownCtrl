@@ -47,6 +47,7 @@ namespace SDMarkDownCtrl
         private SDMarkDownCtrlHostObject _hostObject;
         private bool _isReady;
         private bool _isInitialized;
+        private bool _jsReady; // true solo después de recibir 'editorReady' (JS cargado y escuchando)
         private string _lastError;
 
         // Contenido
@@ -98,7 +99,7 @@ namespace SDMarkDownCtrl
         public SDMarkDownCtrlControl()
         {
             _isReady = false;
-
+            _jsReady = false;
             _isInitialized = false;
             _lastError = string.Empty;
             _markdownText = string.Empty;
@@ -219,8 +220,9 @@ namespace SDMarkDownCtrl
                 switch (msg.type ?? string.Empty)
                 {
                     case "editorReady":
+                        _jsReady = true;
                         RaiseEditorReady();
-                        // Enviar setContent pendiente (llamado antes de que WebView estuviera listo)
+                        // Enviar setContent pendiente (SetMarkdownText llamado antes de que JS cargara)
                         if (_pendingSetContentJson != null)
                         {
                             var pending = _pendingSetContentJson;
@@ -275,7 +277,10 @@ namespace SDMarkDownCtrl
         private void PostLargeMessageToEditor(object payload)
         {
             var json = JsonConvert.SerializeObject(payload);
-            if (_webView?.CoreWebView2 != null && _isReady)
+            // _jsReady: el JS ya cargó la página y registró el listener 'message'.
+            // _isReady (CoreWebView2 listo) NO es suficiente: ControlReady se dispara antes
+            // de que el navegador cargue la página, por lo que PostWebMessageAsString se perdería.
+            if (_jsReady && _webView?.CoreWebView2 != null)
             {
                 try
                 {
@@ -287,7 +292,7 @@ namespace SDMarkDownCtrl
                 }
                 catch { }
             }
-            // WebView aún no listo — guardar para enviar cuando esté listo
+            // JS aún no listo — guardar para enviar cuando llegue 'editorReady'
             _pendingSetContentJson = json;
         }
 
