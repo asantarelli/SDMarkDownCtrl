@@ -67,8 +67,11 @@ namespace SDMarkDownCtrl
         // Carpeta de datos única por instancia (evita conflictos entre múltiples instancias)
         private readonly string _instanceDataFolder;
 
-        // Cola de mensajes pendientes — JS hace polling via host object
+        // Cola de mensajes pendientes — JS hace polling via host object (solo configs pequeñas)
         private readonly ConcurrentQueue<string> _pendingMessages;
+
+        // Contenido pendiente de enviar via PostWebMessageAsString cuando WebView esté listo
+        private string _pendingSetContentJson;
 
         #endregion
 
@@ -217,10 +220,19 @@ namespace SDMarkDownCtrl
                 {
                     case "editorReady":
                         RaiseEditorReady();
+                        // Enviar setContent pendiente (llamado antes de que WebView estuviera listo)
+                        if (_pendingSetContentJson != null)
+                        {
+                            var pending = _pendingSetContentJson;
+                            _pendingSetContentJson = null;
+                            try { _webView.CoreWebView2.PostWebMessageAsString(pending); }
+                            catch { }
+                        }
                         break;
 
                     case "contentLoaded":
-                        _markdownText = msg.markdown ?? string.Empty;
+                        // No sobrescribir _markdownText: C# es la fuente autoritativa del contenido
+                        // que se envió via SetMarkdownText. Solo actualizamos contadores.
                         _cachedHtml = string.Empty;
                         _wordCount = msg.wordCount;
                         _lineCount = msg.lineCount;
@@ -256,6 +268,27 @@ namespace SDMarkDownCtrl
         {
             var json = JsonConvert.SerializeObject(payload);
             _pendingMessages.Enqueue(json);
+        }
+
+        // Para payloads grandes (setContent) usa PostWebMessageAsString en lugar del
+        // polling via host object, que tiene límite práctico de ~2KB en COM interop.
+        private void PostLargeMessageToEditor(object payload)
+        {
+            var json = JsonConvert.SerializeObject(payload);
+            if (_webView?.CoreWebView2 != null && _isReady)
+            {
+                try
+                {
+                    if (_webView.InvokeRequired)
+                        _webView.Invoke(new Action(() => _webView.CoreWebView2.PostWebMessageAsString(json)));
+                    else
+                        _webView.CoreWebView2.PostWebMessageAsString(json);
+                    return;
+                }
+                catch { }
+            }
+            // WebView aún no listo — guardar para enviar cuando esté listo
+            _pendingSetContentJson = json;
         }
 
         internal string DequeueMessage()
@@ -352,7 +385,7 @@ namespace SDMarkDownCtrl
             {
                 _markdownText = markdown ?? string.Empty;
                 _hasChanges = false;
-                PostToEditor(new { action = "setContent", markdown = _markdownText });
+                PostLargeMessageToEditor(new { action = "setContent", markdown = _markdownText });
             }
             catch (Exception ex)
             {
@@ -370,7 +403,7 @@ namespace SDMarkDownCtrl
                 _wordCount = 0;
                 _lineCount = 0;
                 _hasChanges = false;
-                PostToEditor(new { action = "setContent", markdown = string.Empty });
+                PostLargeMessageToEditor(new { action = "setContent", markdown = string.Empty });
             }
             catch (Exception ex)
             {
