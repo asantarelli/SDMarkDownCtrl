@@ -233,8 +233,7 @@ namespace SDMarkDownCtrl
                         break;
 
                     case "contentLoaded":
-                        // No sobrescribir _markdownText: C# es la fuente autoritativa del contenido
-                        // que se envió via SetMarkdownText. Solo actualizamos contadores.
+                        _markdownText = msg.markdown ?? string.Empty;
                         _cachedHtml = string.Empty;
                         _wordCount = msg.wordCount;
                         _lineCount = msg.lineCount;
@@ -380,6 +379,35 @@ namespace SDMarkDownCtrl
         [ComVisible(true)]
         public string GetMarkdownText()
         {
+            // Si el JS está listo, obtener el valor en vivo del editor via ExecuteScriptAsync.
+            // Esto evita depender de la caché (_markdownText) que puede estar desactualizada
+            // si hubo problemas de timing en el canal C#→JS.
+            if (_jsReady && _webView?.CoreWebView2 != null)
+            {
+                try
+                {
+                    var task = _webView.CoreWebView2.ExecuteScriptAsync("window.__editorGetValue ? window.__editorGetValue() : '\"\"'");
+                    // Bombear mensajes para evitar deadlock (el STA thread necesita procesar
+                    // los callbacks de WebView2 mientras esperamos el resultado).
+                    var deadline = Environment.TickCount + 2000;
+                    while (!task.IsCompleted && Environment.TickCount < deadline)
+                    {
+                        Application.DoEvents();
+                        System.Threading.Thread.Sleep(1);
+                    }
+                    if (task.IsCompleted && !task.IsFaulted)
+                    {
+                        // ExecuteScriptAsync devuelve el valor JSON-encoded: "\"markdown\""
+                        var live = JsonConvert.DeserializeObject<string>(task.Result);
+                        if (live != null)
+                        {
+                            _markdownText = live;
+                            return live;
+                        }
+                    }
+                }
+                catch { }
+            }
             return _markdownText ?? string.Empty;
         }
 

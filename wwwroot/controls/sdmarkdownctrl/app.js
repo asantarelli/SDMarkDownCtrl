@@ -110,6 +110,11 @@
         });
     }
 
+    // Expuesto para GetMarkdownText() via ExecuteScriptAsync — devuelve el contenido actual
+    window.__editorGetValue = function () {
+        return editor ? editor.value() : '';
+    };
+
     // Expuesto para que C# lo llame via ExecuteScriptAsync cuando necesite el HTML
     window.getRenderedHTML = function () {
         if (!editor) return '';
