@@ -65,8 +65,11 @@ namespace SDMarkDownCtrl
         private bool _statusBarVisible;
         private string _backgroundColor;
 
-        // Carpeta de datos única por instancia (evita conflictos entre múltiples instancias)
-        private readonly string _instanceDataFolder;
+        // Carpeta de datos compartida por todas las instancias del mismo proceso
+        private static readonly string _instanceDataFolder = Path.Combine(
+            Path.GetTempPath(),
+            "SDMarkDownCtrl",
+            System.Diagnostics.Process.GetCurrentProcess().Id.ToString());
 
         // Cola de mensajes pendientes — JS hace polling via host object (solo configs pequeñas)
         private readonly ConcurrentQueue<string> _pendingMessages;
@@ -115,10 +118,8 @@ namespace SDMarkDownCtrl
             _backgroundColor = string.Empty;
             _pendingMessages = new ConcurrentQueue<string>();
 
-            _instanceDataFolder = Path.Combine(
-                Path.GetTempPath(),
-                "SDMarkDownCtrl",
-                Guid.NewGuid().ToString("N").Substring(0, 12));
+            // Limpiar carpetas de instancias anteriores (procesos ya finalizados)
+            CleanupStaleTempFolders();
 
             Size = new Size(800, 500);
             DoubleBuffered = true;
@@ -619,16 +620,45 @@ namespace SDMarkDownCtrl
             {
                 _webView?.Dispose();
                 _webView = null;
-
-                // Limpiar carpeta de datos temporales de esta instancia
-                try
-                {
-                    if (Directory.Exists(_instanceDataFolder))
-                        Directory.Delete(_instanceDataFolder, true);
-                }
-                catch { }
+                // La carpeta _instanceDataFolder es compartida por todas las instancias del proceso.
+                // No se borra aquí — se limpia al próximo arranque vía CleanupStaleTempFolders.
             }
             base.Dispose(disposing);
+        }
+
+        private static void CleanupStaleTempFolders()
+        {
+            try
+            {
+                var baseDir = Path.Combine(Path.GetTempPath(), "SDMarkDownCtrl");
+                if (!Directory.Exists(baseDir)) return;
+
+                var currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                foreach (var dir in Directory.GetDirectories(baseDir))
+                {
+                    var name = Path.GetFileName(dir);
+                    // Borrar carpetas con nombre numérico (PID) de procesos ya terminados
+                    if (int.TryParse(name, out int pid) && pid != currentPid)
+                    {
+                        try
+                        {
+                            System.Diagnostics.Process.GetProcessById(pid);
+                            // El proceso sigue vivo — no tocar
+                        }
+                        catch (ArgumentException)
+                        {
+                            // Proceso ya no existe — borrar su carpeta
+                            try { Directory.Delete(dir, true); } catch { }
+                        }
+                    }
+                    else if (!int.TryParse(name, out _))
+                    {
+                        // Carpeta con GUID (formato viejo) — siempre borrar
+                        try { Directory.Delete(dir, true); } catch { }
+                    }
+                }
+            }
+            catch { }
         }
 
         #endregion
